@@ -1,3 +1,4 @@
+import random
 class BaseGameLogic:
     def __init__(self, size):
         self.size = size
@@ -97,3 +98,26 @@ class GeneralGameLogic(BaseGameLogic):
         """General game ends when board is full"""
         if self.is_board_full():
             self.game_over = True
+
+
+class Player:
+    def __init__(self, color):
+        self.color = color  # 'blue' or 'red'
+
+    def choose_move(self, game):
+        """To be overridden in subclasses"""
+        pass
+
+class HumanPlayer(Player):
+    def choose_move(self, game):
+        """O input do humano vem pela GUI, então não faz nada aqui"""
+        return None  # Será ignorado
+
+class ComputerPlayer(Player):
+    def choose_move(self, game):
+        empty_cells = [(i, j) for i in range(game.size) for j in range(game.size) if game.board[i][j] == '']
+        if not empty_cells:
+            return None
+        row, col = random.choice(empty_cells)
+        piece = random.choice(['S', 'O'])  # ← o computador escolhe a letra também
+        return row, col, piece
