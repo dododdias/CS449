@@ -1,6 +1,6 @@
 import unittest
 from game_logic import SimpleGameLogic, GeneralGameLogic
-
+from game_logic import ComputerPlayer
 
 class TestSimpleGameLogic(unittest.TestCase):
 
@@ -74,6 +74,42 @@ class TestGameSetup(unittest.TestCase):
         self.assertFalse(game.game_over)
         self.assertTrue(all(cell == '' for row in game.board for cell in row))
 
+class TestComputerPlayer(unittest.TestCase):
+    def test_computer_can_make_move(self):
+        game = SimpleGameLogic(3)
+        computer = ComputerPlayer("blue")
+        move = computer.choose_move(game)
+        self.assertIsNotNone(move)
+        row, col, piece = move
+        self.assertIn((row, col), [(i, j) for i in range(3) for j in range(3)])
+        self.assertIn(piece, ['S', 'O'])
+        self.assertEqual(game.board[row][col], '')
+    
+    def test_full_game_between_computers(self):
+        game = SimpleGameLogic(3)
+        blue = ComputerPlayer("blue")
+        red = ComputerPlayer("red")
+
+        while not game.game_over:
+            current = blue if game.current_player == 'blue' else red
+            move = current.choose_move(game)
+            if move:
+                row, col, piece = move
+                game.make_move(row, col, piece)
+            else:
+                break  # no moves left
+
+        self.assertTrue(game.game_over)
+
+    def test_computer_picks_valid_cell_and_piece(self):
+        game = SimpleGameLogic(3)
+        computer = ComputerPlayer("blue")
+        move = computer.choose_move(game)
+        self.assertIsNotNone(move)
+        row, col, piece = move
+        self.assertTrue(0 <= row < 3 and 0 <= col < 3)
+        self.assertIn(piece, ['S', 'O'])
+        self.assertEqual(game.board[row][col], '')
 
 if __name__ == "__main__":
     unittest.main()
