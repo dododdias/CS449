@@ -8,9 +8,12 @@ class SOSGUI:
         self.root = root
         self.root.title("SOS Game")
         self.root.geometry("800x600")
+        self.recording = []  
+        self.record_enabled = True 
+
         
         main_frame = ttk.Frame(root, padding="20")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        main_frame.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
         
         title_frame = ttk.Frame(main_frame)
         title_frame.grid(row=0, column=0, columnspan=3, pady=(0, 20))
@@ -68,11 +71,16 @@ class SOSGUI:
 
         # New Game button
         ttk.Button(main_frame, text="New Game", command=self.start_new_game).grid(row=3, column=0, columnspan=3)
+        ttk.Button(main_frame, text="Replay Last Game", command=self.replay_game).grid(row=3, column=2, sticky=tk.E, padx=10, pady=10)
 
         # Game init
         self.game = None
         self.buttons = []
         self.start_new_game()
+        # Corrige o layout para permitir crescimento vertical
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+
 
     def start_new_game(self):
         try:
@@ -113,11 +121,24 @@ class SOSGUI:
         self.update_display()
         self.root.after(300, self.try_computer_move)
 
+        if self.record_enabled:
+            self.recording = []
+            self.recording.append(f"mode: {self.game_mode.get()}")
+            self.recording.append(f"size: {self.size_var.get()}")
+            self.recording.append(f"blue: {self.blue_player_type.get()}")
+            self.recording.append(f"red: {self.red_player_type.get()}")
+            self.recording.append("moves:")
+
+
     def make_move(self, row, col):
         if self.game.game_over:
             return
-
+        
         current_piece = self.blue_s.get() if self.game.current_player == 'blue' else self.red_s.get()
+        if self.record_enabled:
+            self.recording.append(f"{self.game.current_player},{row},{col},{current_piece}")
+
+        
         if self.game.make_move(row, col, current_piece):
             self.buttons[row][col].configure(text=current_piece)
             self.update_display()
@@ -126,6 +147,7 @@ class SOSGUI:
                 self.show_game_over()
             else:
                 self.root.after(300, self.try_computer_move)
+
 
     def update_display(self):
         color = 'blue' if self.game.current_player == 'blue' else 'red'
@@ -145,6 +167,12 @@ class SOSGUI:
         ttk.Label(top, text=message, padding=20).pack()
         ttk.Button(top, text="OK", command=top.destroy).pack()
 
+        if self.record_enabled:
+            with open("recorded_game.txt", "w") as f:
+                for line in self.recording:
+                    f.write(line + "\n")
+
+
     def try_computer_move(self):
         current_player = self.blue_player if self.game.current_player == 'blue' else self.red_player
 
@@ -160,3 +188,50 @@ class SOSGUI:
                     self.show_game_over()
                 else:
                     self.root.after(500, self.try_computer_move)
+    
+    def replay_game(self):
+        try:
+            with open("recorded_game.txt", "r") as f:
+                lines = [line.strip() for line in f.readlines()]
+        except FileNotFoundError:
+            print("No recorded game found.")
+            return
+
+        # Lê as configurações
+        mode = lines[0].split(": ")[1]
+        size = int(lines[1].split(": ")[1])
+        blue_type = lines[2].split(": ")[1]
+        red_type = lines[3].split(": ")[1]
+        move_lines = lines[5:]  # pula o 'moves:' linha 4
+
+        # Força o modo replay
+        self.record_enabled = False
+
+        # Configura jogo com base nos dados lidos
+        self.game_mode.set(mode)
+        self.size_var.set(str(size))
+        self.blue_player_type.set(blue_type)
+        self.red_player_type.set(red_type)
+        self.start_new_game()
+
+        self.replay_moves = move_lines
+        self.replay_index = 0
+        self.root.after(800, self.play_next_replay_move)
+
+    def play_next_replay_move(self):
+        if self.replay_index >= len(self.replay_moves):
+            self.show_game_over()
+            return
+
+        move = self.replay_moves[self.replay_index]
+        player, row, col, piece = move.split(',')
+        row, col = int(row), int(col)
+
+        self.game.current_player = player  # Força o turno certo
+        self.game.make_move(row, col, piece)
+        self.buttons[row][col].configure(text=piece)
+        self.update_display()
+
+        self.replay_index += 1
+        self.root.after(800, self.play_next_replay_move)
+        
