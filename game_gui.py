@@ -83,6 +83,7 @@ class SOSGUI:
 
 
     def start_new_game(self):
+        self.record_enabled = True  # reativa a gravação após replay
         try:
             size = int(self.size_var.get())
             if size < 3:
@@ -119,7 +120,10 @@ class SOSGUI:
             self.buttons.append(row_buttons)
 
         self.update_display()
-        self.root.after(300, self.try_computer_move)
+        if isinstance(self.blue_player, ComputerPlayer) and isinstance(self.red_player, ComputerPlayer):
+            self.root.after(300, self.run_cpu_vs_cpu)
+        else:
+            self.root.after(300, self.try_computer_move)
 
         if self.record_enabled:
             self.recording = []
@@ -179,15 +183,22 @@ class SOSGUI:
         if isinstance(current_player, ComputerPlayer) and not self.game.game_over:
             move = current_player.choose_move(self.game)
             if move:
-                row, col, piece = move  # ← agora vem a letra junto
-                self.game.make_move(row, col, piece)
-                self.buttons[row][col].configure(text=piece)
-                self.update_display()
+                row, col, piece = move
 
-                if self.game.game_over:
-                    self.show_game_over()
-                else:
-                    self.root.after(500, self.try_computer_move)
+                # Atualiza o tabuleiro com o movimento
+                success = self.game.make_move(row, col, piece)
+                if success:
+                    # Gravação do movimento do computador (antes de atualizar a interface)
+                    if self.record_enabled:
+                        self.recording.append(f"{self.game.current_player},{row},{col},{piece}")
+                    
+                    self.buttons[row][col].configure(text=piece)
+                    self.update_display()
+
+                    if self.game.game_over:
+                        self.show_game_over()
+                    else:
+                        self.root.after(500, self.try_computer_move)
     
     def replay_game(self):
         try:
@@ -234,4 +245,21 @@ class SOSGUI:
 
         self.replay_index += 1
         self.root.after(800, self.play_next_replay_move)
+
+    def run_cpu_vs_cpu(self):
+        if self.game.game_over:
+            self.show_game_over()
+            return
+
+        current_player = self.blue_player if self.game.current_player == 'blue' else self.red_player
+        move = current_player.choose_move(self.game)
+        if move:
+            row, col, piece = move
+            if self.record_enabled:
+                self.recording.append(f"{self.game.current_player},{row},{col},{piece}")
+            self.game.make_move(row, col, piece)
+            self.buttons[row][col].configure(text=piece)
+            self.update_display()
+
+        self.root.after(500, self.run_cpu_vs_cpu)
         
